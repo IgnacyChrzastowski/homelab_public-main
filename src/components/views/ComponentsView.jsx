@@ -57,7 +57,20 @@ const ComponentsView = ({ userId, categories, parameters }) => {
         return (matchesBasic || matchesParams) && matchesCategory && matchesStatus;
     });
 
-    const visibleParameters = (parameters || []).filter(p => p.isVisible);
+    // Pokaż kolumny parametrów zależnie od wybranej kategorii:
+    // - gdy wybrano konkretną kategorię: pokaż tylko parametry przypisane do tej kategorii i oznaczone jako isVisible
+    // - gdy wybrane "Wszystkie kategorie" (filterCategory === ''): pokaż wszystkie parametry z isVisible
+    const visibleParameters = (() => {
+        const allParams = parameters || [];
+        if (!filterCategory) {
+            return allParams.filter(p => p.isVisible);
+        }
+        // znajdź kategorię i jej przypisane parametry (parameterIds)
+        const cat = categories.find(c => c.id === filterCategory);
+        const paramIds = (cat && Array.isArray(cat.parameterIds)) ? cat.parameterIds : [];
+        // zwróć parametry które są zarówno przypisane do kategorii, jak i widoczne
+        return allParams.filter(p => paramIds.includes(p.id) && p.isVisible);
+    })();
 
     const handleCreateOrUpdate = async (payload) => {
         if (editing && editing.id) {
