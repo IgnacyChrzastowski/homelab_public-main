@@ -1,17 +1,7 @@
-import { useState, useEffect } from 'react';
-import {
-    collection,
-    onSnapshot,
-    addDoc,
-    setDoc,
-    deleteDoc,
-    doc,
-    query,
-    orderBy,
-    getDoc
-} from 'firebase/firestore';
+import {useEffect, useState} from 'react';
+import {addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, setDoc} from 'firebase/firestore';
 import toast from 'react-hot-toast';
-import { db } from '../config/firebase';
+import {db} from '../config/firebase';
 
 /**
  * Custom hook for Firestore CRUD operations with counter support
@@ -51,7 +41,7 @@ export function useFirestoreCrud(collectionPath, userId) {
     /**
      * Add new item with optional counter-based internal ID
      * @param {Object} payload - Item data
-     * @param {string} prefix - Optional prefix for internal ID (e.g., 'U', 'K', 'P')
+     * @param {null} prefix - Optional prefix for internal ID (e.g., 'U', 'K', 'P')
      */
     const add = async (payload, prefix = null) => {
         if (!db || !userId) return;
@@ -74,8 +64,7 @@ export function useFirestoreCrud(collectionPath, userId) {
 
                 await setDoc(counterRef, { count: nextCount, lastUpdated: nowISO }, { merge: true });
 
-                const internalId = `${prefix}${nextCount}/${month}/${year}`;
-                finalPayload.internalId = internalId;
+                finalPayload.internalId = `${prefix}${nextCount}/${month}/${year}`;
             }
 
             const docRef = await addDoc(collection(db, collectionPath), finalPayload);
