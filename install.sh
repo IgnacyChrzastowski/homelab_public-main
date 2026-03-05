@@ -151,10 +151,112 @@ EOL
 
 chmod +x start.sh
 
+# ---- SYSTEMD SERVICE ----
+echo -e "${YELLOW}Konfigurowanie usługi systemd...${NC}"
+
+# Pobranie pełnej ścieżki do Node.js
+NODE_PATH=$(which node)
+NPM_PATH=$(which npm)
+
+# Tworzenie pliku usługi systemd dla backendu
+echo -e "${YELLOW}Tworzenie usługi homelab-backend...${NC}"
+
+sudo tee /etc/systemd/system/homelab-backend.service > /dev/null <<EOL
+[Unit]
+Description=Homelab Backend Service
+After=network.target
+Wants=homelab-frontend.service
+
+[Service]
+Type=simple
+User=$CURRENT_USER
+WorkingDirectory=$PROJECT_DIR/backend
+ExecStart=$NODE_PATH server.js
+Restart=always
+RestartSec=10
+Environment="PATH=$HOME/.nvm/versions/node/v20.*/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="NODE_ENV=production"
+Environment="PORT=3001"
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Tworzenie skryptu do uruchamiania frontendu
+echo -e "${YELLOW}Tworzenie usługi homelab-frontend...${NC}"
+
+sudo tee /etc/systemd/system/homelab-frontend.service > /dev/null <<EOL
+[Unit]
+Description=Homelab Frontend Service
+After=network.target
+
+[Service]
+Type=simple
+User=$CURRENT_USER
+WorkingDirectory=$PROJECT_DIR
+ExecStart=$NPM_PATH start
+Restart=always
+RestartSec=10
+Environment="PATH=$HOME/.nvm/versions/node/v20.*/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="NODE_ENV=production"
+Environment="PORT=3000"
+Environment="REACT_APP_API_URL=http://localhost:3001"
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Tworzenie pliku celu do jednoczesnego uruchamiania obu usług
+echo -e "${YELLOW}Tworzenie celu homelab.target...${NC}"
+
+sudo tee /etc/systemd/system/homelab.target > /dev/null <<EOL
+[Unit]
+Description=Homelab Application Target
+After=network.target
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Przeładowanie konfiguracji systemd
+echo -e "${YELLOW}Przeładowanie konfiguracji systemd...${NC}"
+sudo systemctl daemon-reload
+
+# Włączenie usług (autostart przy starcie systemu)
+echo -e "${YELLOW}Włączanie usług do automatycznego uruchamiania...${NC}"
+sudo systemctl enable homelab-backend.service
+sudo systemctl enable homelab-frontend.service
+
+# Informacja o gotowości
 echo -e "${GREEN}"
 echo "=================================="
 echo " INSTALACJA ZAKOŃCZONA"
 echo "=================================="
-echo "Uruchom aplikację:"
-echo "./start.sh"
+echo ""
+echo "Usługi systemd skonfigurowane:"
+echo "=================================="
+echo ""
+echo "URUCHAMIANIE APLIKACJI:"
+echo "  sudo systemctl start homelab-backend"
+echo "  sudo systemctl start homelab-frontend"
+echo ""
+echo "ZATRZYMYWANIE APLIKACJI:"
+echo "  sudo systemctl stop homelab-backend"
+echo "  sudo systemctl stop homelab-frontend"
+echo ""
+echo "STATUS USŁUG:"
+echo "  sudo systemctl status homelab-backend"
+echo "  sudo systemctl status homelab-frontend"
+echo ""
+echo "WYŚWIETLANIE LOGÓW:"
+echo "  sudo journalctl -u homelab-backend -f"
+echo "  sudo journalctl -u homelab-frontend -f"
+echo ""
+echo "RESTART USŁUG:"
+echo "  sudo systemctl restart homelab-backend"
+echo "  sudo systemctl restart homelab-frontend"
+echo ""
+echo "=================================="
+echo "Usługi będą automatycznie uruchamiane przy starcie systemu."
+echo "=================================="
 echo -e "${NC}"
