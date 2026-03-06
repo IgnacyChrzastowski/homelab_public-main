@@ -131,6 +131,11 @@ npm install \
   web-vitals@2.1.4
 
 chmod -R u+rwX node_modules
+
+# Naprawianie podatności (musi być w katalogu projektu)
+echo -e "${YELLOW}Naprawianie podatności frontend...${NC}"
+npm audit fix --force 2>/dev/null || true
+
 echo -e "${GREEN}✓ Frontend zainstalowany${NC}"
 
 # ---- BACKEND ----
@@ -155,9 +160,22 @@ npm install \
   serve-index@1.9.1
 
 chmod -R u+rwX node_modules
+
 echo -e "${GREEN}✓ Backend zainstalowany${NC}"
 
 cd ..
+
+# ---- NAPRAWIANIE PODATNOŚCI ----
+echo ""
+echo -e "${BLUE}═══════════════════════════════════${NC}"
+echo -e "${BLUE}   NAPRAWIANIE PODATNOŚCI${NC}"
+echo -e "${BLUE}═══════════════════════════════════${NC}"
+
+echo -e "${YELLOW}Naprawianie podatności backend...${NC}"
+cd backend
+npm audit fix --force 2>/dev/null || true
+cd ..
+echo -e "${GREEN}✓ Backend naprawiony${NC}"
 
 # ---- SYSTEMD CONFIGURATION ----
 echo ""

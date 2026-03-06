@@ -299,6 +299,15 @@ homelab_public-main/
 - Plik `admin/` zawiera wrażliwe dane - dodaj do `.gitignore`
 - Używaj zmiennych `.env` do przechowywania sekretów
 
+### Podatności npm (CVEs)
+
+Instalator automatycznie naprawia podatności przy pomocy `npm audit fix --force`.
+
+- **Frontend (React)**: Warningi o deprecated pakietach to normalne - nie wpływają na bezpieczeństwo aplikacji
+- **Backend (Express)**: Podatności są naprawianie automatycznie
+
+Więcej informacji: patrz [SECURITY.md](SECURITY.md)
+
 ---
 
 ## Dodatkowe informacje
