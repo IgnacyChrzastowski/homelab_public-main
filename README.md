@@ -1,140 +1,311 @@
 # Homelab Public — dokumentacja techniczna
 
-To repozytorium zawiera prostą aplikację React + Express (frontend + backend) używaną jako przykład i do zarządzania inwentarzem.
+To repozytorium zawiera prostą aplikację React + Express (frontend + backend) używaną do zarządzania inwentarzem.
 
-Spis treści
-- Wstęp
-- Wymagania
-- Struktura projektu
-- Zmienne środowiskowe
-- Instalacja
-  - Linux / macOS
-  - Windows (PowerShell)
-- Skrypty
-- Uruchamianie
-  - Uruchomienie lokalne (frontend + backend)
-- Rozwiązywanie problemów
-- Lista istotnych zależności (wersje)
-- Dodatkowe uwagi i kontakty
+## 🚀 Szybki start
 
-Wstęp
-------
+### Raspberry Pi / Linux
+```bash
+bash install.sh
+```
+Skrypt automatycznie zainstaluje wszystko i skonfiguruje usługi systemd z autostartem.
+
+### Windows
+```powershell
+.\install.ps1
+.\start.bat
+```
+
+---
+
+## 📋 Spis treści
+- [Wstęp](#wstęp)
+- [Wymagania](#wymagania)
+- [Instalacja](#instalacja)
+- [Uruchamianie](#uruchamianie)
+- [Zarządzanie usługami systemd](#zarządzanie-usługami-systemd)
+- [Rozwiązywanie problemów](#rozwiązywanie-problemów)
+- [Zależności](#zależności)
+
+---
+
+## Wstęp
+
 Aplikacja składa się z:
-- frontend: React (w katalogu głównym projektu)
-- backend: prosty serwer Express (katalog `backend`)
+- **Frontend**: React aplikacja (katalog główny)
+- **Backend**: Prosty serwer Express (katalog `backend`)
 
-Wymagania
----------
-- Node.js (zalecane: 20.x LTS)
-- npm (dołączone z Node)
-- PowerShell 5+ na Windows (do uruchomienia skryptów .ps1)
-- Uprawnienia do zapisu w katalogu projektu
+**Wersja 2.0+:** Skrypt `install.sh` automatycznie konfiguruje usługi systemd na Linux/Raspberry Pi:
+- `homelab-backend.service` — serwer Node.js (port 3001)
+- `homelab-frontend.service` — aplikacja React (port 3000)
 
-Struktura projektu (istotne pliki)
----------------------------------
-- `package.json` — frontend
-- `backend/package.json` — backend
-- `backend/server.js` — serwer Express
-- `install.sh` — instalator (Linux/macOS)
-- `install.ps1` — instalator (Windows, PowerShell)
-- `start.sh` — skrypt uruchamiający (Linux/macOS)
-- `start.ps1` — skrypt uruchamiający (Windows, PowerShell)
-- `start.bat` — prosty wrapper dla Windows (uruchamia `start.ps1`)
-- `.env` — zmienne środowiskowe (może być generowany przez instalator)
-- `backend/uploaded_documents/` — katalog na przesłane pliki (musi istnieć)
+Po instalacji aplikacja będzie:
+- ✅ Uruchamiana automatycznie przy starcie systemu
+- ✅ Restartowana w przypadku awarii
+- ✅ Zarządzana poleceniami `systemctl`
 
-Zmienne środowiskowe
---------------------
-Plik `.env` w katalogu głównym (root) powinien zawierać co najmniej:
+---
 
+## Wymagania
+
+- **Node.js** 20.x LTS
+- **npm** (dołączone z Node.js)
+- **PowerShell 5+** (tylko Windows)
+- **Uprawnienia do zapisu** w katalogu projektu
+- **Dla Raspberry Pi**: minimum 1GB RAM, 2GB wolnej przestrzeni
+
+---
+
+## Instalacja
+
+### Raspberry Pi / Linux (z systemd - rekomendowany) ⭐
+
+**WAŻNE: Nie uruchamiaj z sudo!**
+
+```bash
+# 1. Sklonuj projekt
+git clone <URL> homelab && cd homelab
+
+# 2. Uruchom instalator (BEZ sudo!)
+bash install.sh
+
+# 3. Gotowe! Aplikacja uruchamia się przy starcie systemu
+```
+
+Skrypt automatycznie:
+- ✅ Zainstaluje NVM i Node.js 20 LTS
+- ✅ Zainstaluje wszystkie zależności
+- ✅ Skonfiguruje usługi systemd
+- ✅ Włączy autostart
+
+### Linux / macOS (interaktywnie, bez systemd)
+
+```bash
+chmod +x install.sh
+./install.sh
+./start.sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install.ps1
+.\start.bat
+```
+
+---
+
+## Uruchamianie
+
+### Raspberry Pi / Linux (systemd)
+
+```bash
+# Uruchomienie
+sudo systemctl start homelab-backend homelab-frontend
+
+# Zatrzymanie
+sudo systemctl stop homelab-backend homelab-frontend
+
+# Restart
+sudo systemctl restart homelab-backend homelab-frontend
+
+# Status
+sudo systemctl status homelab-backend homelab-frontend
+```
+
+**Dostęp do aplikacji:**
+- Frontend: `http://localhost:3000` (lub `http://<IP_RASPBERRY>:3000`)
+- Backend: `http://localhost:3001` (lub `http://<IP_RASPBERRY>:3001`)
+
+### Linux/macOS (interaktywnie)
+
+```bash
+./start.sh
+```
+
+---
+
+## Zarządzanie usługami systemd
+
+### Wyświetlanie logów
+
+```bash
+# Backend - ostatnie 50 linii
+sudo journalctl -u homelab-backend -n 50
+
+# Backend - ciągłe (Ctrl+C aby wyjść)
+sudo journalctl -u homelab-backend -f
+
+# Frontend - ciągłe (Ctrl+C aby wyjść)
+sudo journalctl -u homelab-frontend -f
+```
+
+### Autostart
+
+```bash
+# Włącz autostart (uruchamiaj się przy starcie)
+sudo systemctl enable homelab-backend homelab-frontend
+
+# Wyłącz autostart
+sudo systemctl disable homelab-backend homelab-frontend
+
+# Sprawdzenie
+sudo systemctl is-enabled homelab-backend
+```
+
+### Resetowanie usług
+
+```bash
+# Resetuj licznik restartów
+sudo systemctl reset-failed homelab-backend homelab-frontend
+
+# Przeładuj konfigurację (po edycji)
+sudo systemctl daemon-reload
+```
+
+---
+
+## Rozwiązywanie problemów
+
+### ❌ Błąd: "env: 'node': No such file or directory"
+
+**Przyczyna:** Systemd nie może znaleźć Node.js
+
+**Rozwiązanie:**
+```bash
+# 1. Wyloguj się z sudo (jeśli w sudo su)
+exit
+
+# 2. Sprawdź czy jesteś użytkownikiem pi
+whoami
+
+# 3. Załaduj NVM
+source ~/.nvm/nvm.sh
+
+# 4. Sprawdź Node.js
+node -v
+
+# 5. Zrestartuj usługi
+sudo systemctl restart homelab-backend homelab-frontend
+
+# 6. Sprawdź logi
+sudo journalctl -u homelab-frontend -n 50
+```
+
+### ❌ Skrypt uruchomiony z sudo
+
+Jeśli widzisz: "BŁĄD: Nie uruchamiaj tego skryptu z sudo!"
+
+```bash
+exit                    # Wyloguj się
+bash install.sh         # Uruchom poprawnie (BEZ sudo)
+```
+
+### ❌ Aplikacja restartuje się w pętli
+
+```bash
+# Sprawdź przyczynę
+sudo journalctl -u homelab-backend -n 100
+
+# Resetuj i zrestartuj
+sudo systemctl reset-failed homelab-backend
+sudo systemctl restart homelab-backend
+```
+
+### ❌ Port już w użytku
+
+```bash
+# Sprawdź proces
+sudo lsof -i :3000
+sudo lsof -i :3001
+
+# Zabij proces
+sudo kill -9 <PID>
+
+# Zrestartuj
+sudo systemctl restart homelab-backend homelab-frontend
+```
+
+### ❌ Zbyt dużo pamięci RAM
+
+Jeśli Raspberry Pi się zawiesza:
+
+```bash
+# Sprawdź użycie RAM
+free -h
+
+# Sprawdź procesy
+top -b -n 1
+```
+
+---
+
+## Zmienne środowiskowe
+
+Plik `.env` w katalogu głównym (generowany przez instalator):
+
+```
 HOST=0.0.0.0
 PORT=3000
 REACT_APP_API_URL=http://localhost:3001
+```
 
-Instalacja
----------
-Linux / macOS
-1. Nadaj prawa wykonywania: `chmod +x install.sh`
-2. Uruchom: `./install.sh`
-   - Skrypt instaluje (lokalnie w projekcie) zależności frontend i backend
-   - Tworzy `backend/uploaded_documents`
-   - Generuje `start.sh` i ustawia prawa wykonania
+---
 
-Windows (PowerShell)
-1. Otwórz PowerShell jako Administrator (zalecane).
-2. Uruchom (jeśli polityka wykonywania blokuje skrypty):
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-3. Uruchom instalator: `.uild\install.ps1` (jeśli uruchamiasz z katalogu projektu użyj `.	ools\install.ps1` zależnie od lokalizacji). W tym repo skrypt znajduje się w katalogu głównym: `.	ools\install.ps1` (jeśli skrypt jest w root to `.\n4. Alternatywnie, wykonaj poniższe ręcznie:
-   - Zainstaluj Node.js 20.x LTS ze strony https://nodejs.org/
-   - W katalogu projektu uruchom `npm install` (frontend)
-   - W katalogu `backend` uruchom `npm install`
-   - Upewnij się, że istnieje katalog `backend\uploaded_documents`
-   - Utwórz `.env` w katalogu root z powyższymi zmiennymi
+## Struktura katalogów
 
-Uwaga: skrypt PowerShell (`install.ps1`) stara się zautomatyzować powyższe kroki (próbuje wykryć Node i wykonać `npm install` z użytymi wersjami pakietów).
+```
+homelab_public-main/
+├── install.sh                    ← Instalator (Linux/Raspberry Pi)
+├── install.ps1                   ← Instalator (Windows)
+├── start.sh                       ← Uruchamianie (Linux/macOS)
+├── start.ps1                      ← Uruchamianie (Windows)
+├── start.bat                      ← Wrapper dla Windows
+├── package.json                   ← Frontend
+├── backend/
+│   ├── package.json              ← Backend
+│   ├── server.js                 ← Serwer Express
+│   └── uploaded_documents/        ← Przesłane pliki
+├── src/                          ← Kod React
+├── public/                       ← Pliki statyczne
+└── admin/                        ← Klucze Firebase (nie commit!)
+```
 
-Skrypty
--------
-- `install.sh` — instalator dla systemów Unix-like (już w repo)
-- `install.ps1` — instalator dla Windows (PowerShell) — generuje także `start.ps1` i `start.bat`
-- `start.sh` — uruchamia frontend i backend w jednym procesie (Unix)
-- `start.ps1` — uruchamia frontend i backend w PowerShell (Windows)
-- `start.bat` — prosty wrapper do uruchamiania `start.ps1` przez dwuklik
+---
 
-Uruchamianie
-------------
-Po instalacji uruchom aplikację:
-Linux/macOS:
-- `./start.sh`
+## Zależności
 
-Windows (PowerShell):
-- Otwórz PowerShell i uruchom: `.\n- Lub dwukliknij `start.bat` (uruchomi `start.ps1` przez PowerShell)
-
-Rozwiązywanie problemów
------------------------
-1. Brak Node / złe wersje:
-   - Sprawdź `node -v` oraz `npm -v`. Zainstaluj Node 20.x jeśli wersja jest niższa.
-2. Uprawnienia:
-   - Na Linuxie użyj `chmod` i `chown` zgodnie z `install.sh`.
-3. Błędy przy `npm install`:
-   - Usuń `node_modules` i spróbuj ponownie `npm cache clean --force` i `npm install`.
-4. Backend nie znajduje `uploaded_documents`:
-   - Upewnij się, że katalog `backend/uploaded_documents` istnieje i ma prawa zapisu.
-
-Lista istotnych zależności (wersje minimalne używane przez instalator)
-------------------------------------------------------------------
-Frontend:
-- @tailwindcss/vite@4.1.16
-- @testing-library/dom@10.4.1
-- @testing-library/jest-dom@6.9.1
-- @testing-library/react@16.3.0
-- @testing-library/user-event@13.5.0
-- autoprefixer@10.4.21
-- firebase@12.4.0
-- jsbarcode@3.12.1
-- jspdf-autotable@5.0.2
-- jspdf@3.0.3
-- postcss@8.5.6
-- react-dom@19.2.0
-- react-hot-toast@2.6.0
-- react-scripts@5.0.1
+### Frontend
 - react@19.2.0
+- firebase@12.4.0
+- jspdf@3.0.3
 - recharts@3.3.0
 - tailwindcss@3.4.18
-- web-vitals@2.1.4
+- jsbarcode@3.12.1
 
-Backend:
-- cors@2.8.5
+### Backend
 - express@5.1.0
 - firebase-admin@13.6.0
+- cors@2.8.5
 - multer@2.0.2
-- serve-index@1.9.1
 
-Dodatkowe uwagi
----------------
-- Jeśli używasz Firestore / firebase-admin, upewnij się, że pliki kluczy (`serviceAccountKey.json`) są poprawnie wstawione do katalogu `admin/` i backend ma dostęp do tych plików.
-- Pliki `admin/*.json` zawierają dane wrażliwe — nie umieszczaj ich w publicznych repozytoriach.
+---
 
-Kontakt
--------
-W razie problemów możesz otworzyć issue w repo lub skontaktować się bezpośrednio z autorem projektu.
+## Uwagi bezpieczeństwa
+
+⚠️ **Ważne:**
+- Nigdy nie umieszczaj `serviceAccountKey.json` w publicznym repo
+- Plik `admin/` zawiera wrażliwe dane - dodaj do `.gitignore`
+- Używaj zmiennych `.env` do przechowywania sekretów
+
+---
+
+## Dodatkowe informacje
+
+- **Logs**: `/var/log/syslog` lub `journalctl`
+- **Konfiguracja systemd**: `/etc/systemd/system/homelab-*.service`
+- **Projekt**: Linux/Raspberry Pi OS, Node.js 20 LTS
+
+Powodzenia! 🚀
+
