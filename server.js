@@ -66,6 +66,78 @@ app.post('/api/upload-document', upload.single('file'), (req, res) => {
 app.use('/documents', express.static(UPLOAD_DIR));
 
 
+
+// Importy Firebase (jeśli nie są już dodane)
+const { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } = require('firebase/firestore');
+
+// Endpointy dla wypożyczeń
+app.get('/api/rentals', async (req, res) => {
+    try {
+        const q = query(collection(db, 'rentals'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const rentals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json(rentals);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/rentals', async (req, res) => {
+    try {
+        const { ownerName, renterName, renterDetails, issueDate, returnDate, items, notes } = req.body;
+        const rentalNumber = await generateRentalNumber();
+        const totalValue = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        const docRef = await addDoc(collection(db, 'rentals'), {
+            ownerName,
+            renterName,
+            renterDetails,
+            issueDate,
+            returnDate,
+            items,
+            notes,
+            rentalNumber,
+            totalValue,
+            createdAt: new Date()
+        });
+        res.json({ id: docRef.id });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/rentals/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        await updateDoc(doc(db, 'rentals', id), updates);
+        res.json({ message: 'Zaktualizowano' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/rentals/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await deleteDoc(doc(db, 'rentals', id));
+        res.json({ message: 'Usunięto' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Funkcja pomocnicza do generowania numeru (dodaj na początku pliku)
+const generateRentalNumber = async () => {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const q = query(collection(db, 'rentals'), orderBy('rentalNumber', 'desc'));
+    const snapshot = await getDocs(q);
+    const last = snapshot.docs[0]?.data()?.rentalNumber || `${today}-000`;
+    const num = parseInt(last.split('-')[1]) + 1;
+    return `${today}-${num.toString().padStart(3, '0')}`;
+};
+
+
+
 app.listen(PORT, () => {
     console.log(`Serwer backend działa na http://localhost:${PORT}`);
 });
