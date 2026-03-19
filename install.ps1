@@ -1,112 +1,100 @@
-<#
-Windows PowerShell installer for Homelab Public
-Performs these steps:
-- checks for Node.js (prints instructions if not found)
-- runs npm install in root and backend
-- creates backend\uploaded_documents
-- creates .env if missing
-- generates start.ps1 and start.bat
-#>
+#
+# Windows PowerShell installer for Homelab Public
+# Performs these steps:
+# 1. Installs npm dependencies for frontend
+# 2. Installs npm dependencies for backend (if exists)
+# 3. Generates start.ps1 and start.bat scripts
+#
 
-Set-StrictMode -Version Latest
+param(
+    [string]$ProjectDir = (Get-Location),
+    [switch]$SkipNpmInstall = $false
+)
 
-Write-Host "=================================="
-Write-Host "   HOMELAB WINDOWS INSTALLER"
-Write-Host "=================================="
+Write-Host "======================================"
+Write-Host "Homelab Public - Installer"
+Write-Host "======================================"
+Write-Host "Project directory: $ProjectDir"
 
-$ProjectDir = (Get-Location).Path
-Write-Host "Projekt w: $ProjectDir"
-
-# Check Node
-$node = Get-Command node -ErrorAction SilentlyContinue
-if (-not $node) {
-    Write-Warning "Node.js nie jest zainstalowany lub nie jest na PATH. Proszę zainstalować Node.js 20.x LTS z https://nodejs.org/ i ponowić instalację."
+# Check if project directory exists
+if (-not (Test-Path $ProjectDir -PathType Container)) {
+    Write-Error "Project directory does not exist: $ProjectDir"
     exit 1
 }
 
-Write-Host "Node version: " (node -v)
-Write-Host "NPM version: " (npm -v)
+# Install frontend dependencies
+if (-not $SkipNpmInstall) {
+    Write-Host ""
+    Write-Host "Installing npm dependencies for frontend..."
+    Push-Location $ProjectDir
 
-# Create uploaded_documents
-$uploaded = Join-Path $ProjectDir "backend\uploaded_documents"
-if (-not (Test-Path $uploaded)) {
-    Write-Host "Tworzenie katalogu backend\uploaded_documents..."
-    New-Item -ItemType Directory -Path $uploaded | Out-Null
-} else {
-    Write-Host "Katalog backend\uploaded_documents już istnieje"
-}
-
-# .env
-$envFile = Join-Path $ProjectDir ".env"
-if (-not (Test-Path $envFile)) {
-    Write-Host "Tworzenie .env..."
-    @"
-HOST=0.0.0.0
-PORT=3000
-REACT_APP_API_URL=http://localhost:3001
-"@ | Out-File -FilePath $envFile -Encoding UTF8
-} else {
-    Write-Host ".env już istnieje"
-}
-
-# npm install frontend
-Write-Host "Instalowanie zależności frontend (root)..."
-Push-Location $ProjectDir
-try {
-    npm install
-} catch {
-    Write-Warning "Błąd podczas npm install w katalogu głównym: $_"
-    Pop-Location
-    exit 1
-}
-Pop-Location
-
-# npm install backend
-$backendDir = Join-Path $ProjectDir "backend"
-if (Test-Path $backendDir) {
-    Write-Host "Instalowanie zależności backend..."
-    Push-Location $backendDir
-    try {
+    if (Test-Path "package.json" -PathType Leaf) {
         npm install
-    } catch {
-        Write-Warning "Błąd podczas npm install w katalogu backend: $_"
-        Pop-Location
-        exit 1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "npm install failed for frontend"
+            Pop-Location
+            exit 1
+        }
+    } else {
+        Write-Warning "package.json not found in project root"
     }
+
     Pop-Location
 } else {
-    Write-Warning "Katalog backend nie istnieje. Pomiń instalację backendu."
+    Write-Host "Skipping npm install (--SkipNpmInstall)"
+}
+
+# Install backend dependencies (if backend directory exists)
+$backendDir = Join-Path $ProjectDir "backend"
+if ((Test-Path $backendDir -PathType Container) -and -not $SkipNpmInstall) {
+    Write-Host ""
+    Write-Host "Installing npm dependencies for backend..."
+    Push-Location $backendDir
+
+    if (Test-Path "package.json" -PathType Leaf) {
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "npm install failed for backend - continuing anyway"
+        }
+    }
+
+    Pop-Location
+} else {
+    Write-Warning "Backend directory does not exist. Skipping backend installation."
 }
 
 # Generate start.ps1
-$startPs1 = @'
-Write-Host "Uruchamianie frontendu..."
-Start-Process -FilePath "npm" -ArgumentList "start" -WorkingDirectory "{PROJECTDIR}" -NoNewWindow
+$startPs1Template = @'
+Write-Host "Starting frontend..."
+$start = Start-Process -FilePath "npm" -ArgumentList "start" -WorkingDirectory "___PROJECTDIR___" -PassThru
 
 Start-Sleep -Seconds 2
 
-Write-Host "Uruchamianie backendu..."
-$backendPath = Join-Path "{PROJECTDIR}" "backend"
-Start-Process -FilePath "node" -ArgumentList "server.js" -WorkingDirectory $backendPath -NoNewWindow
+Write-Host "Starting backend..."
+$backendPath = Join-Path "___PROJECTDIR___" "backend"
+$backend = Start-Process -FilePath "node" -ArgumentList "server.js" -WorkingDirectory $backendPath -PassThru
 
-Write-Host "Aplikacje uruchomione. Zamknij okno lub użyj Ctrl+C aby zakończyć."'@
+Write-Host "Applications started on ports 3000 (frontend) and 3001 (backend)."
+Write-Host "Press Ctrl+C to stop."
+'@
 
-$startPs1 = $startPs1 -replace "{PROJECTDIR}", ($ProjectDir -replace "\\","\\\\")
+$startPs1 = $startPs1Template -replace "___PROJECTDIR___", $ProjectDir
 
 $startPath = Join-Path $ProjectDir "start.ps1"
 $startPs1 | Out-File -FilePath $startPath -Encoding UTF8
-Write-Host "Wygenerowano start.ps1"
+Write-Host "Generated start.ps1"
 
 # Generate start.bat
-$startBat = "@echo off`r`nREM Wrapper uruchamiajacy start.ps1`r`npowershell -ExecutionPolicy RemoteSigned -File \"%~dp0start.ps1\" %*"
+$startBat = "@echo off`r`nREM Wrapper to launch start.ps1`r`npowershell -ExecutionPolicy RemoteSigned -File `"%~dp0start.ps1`" %*"
 $startBatPath = Join-Path $ProjectDir "start.bat"
 $startBat | Out-File -FilePath $startBatPath -Encoding ASCII
-Write-Host "Wygenerowano start.bat"
+Write-Host "Generated start.bat"
 
-Write-Host "=================================="
-Write-Host " INSTALACJA ZAKOŃCZONA"
-Write-Host "=================================="
-Write-Host "Uruchom aplikację: .\start.ps1 lub dwuklik start.bat"
+Write-Host ""
+Write-Host "===================================="
+Write-Host "Installation completed successfully"
+Write-Host "===================================="
+Write-Host "Run: .\start.ps1 or double-click start.bat"
 
 exit 0
 

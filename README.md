@@ -20,6 +20,7 @@ Skrypt automatycznie zainstaluje wszystko i skonfiguruje usługi systemd z autos
 
 ## 📋 Spis treści
 - [Wstęp](#wstęp)
+- [Funkcjonalności](#funkcjonalności)
 - [Wymagania](#wymagania)
 - [Instalacja](#instalacja)
 - [Uruchamianie](#uruchamianie)
@@ -43,6 +44,39 @@ Po instalacji aplikacja będzie:
 - ✅ Uruchamiana automatycznie przy starcie systemu
 - ✅ Restartowana w przypadku awarii
 - ✅ Zarządzana poleceniami `systemctl`
+
+---
+
+## Funkcjonalności
+
+### 📦 Ewidencja Komponentów
+- Dodawanie, edycja i usuwanie komponentów
+- Kategorie i parametry techniczne
+- Generowanie kodów kreskowych
+- Eksport do PDF
+
+### 📄 Dokumentacja
+- Przesyłanie plików dokumentów
+- Generowanie automatycznych PDF
+- Tworzenie faktur VAT
+- Archiwizacja dokumentów
+
+### 📋 Raporty Wypożyczenia Sprzętu
+- Tworzenie raportów wypożyczenia sprzętu
+- Wybór komponentów z ewidencji lub dodawanie ręcznych pozycji
+- Automatyczna numeracja raportów (RW1/03/26, RW2/03/26, itp.)
+- Generowanie profesjonalnych raportów PDF
+- Przechowywanie w bazie danych z wyszukiwaniem
+- Historia wszystkich raportów
+
+### 🔄 Migracja Danych
+- Import danych z LocalStorage
+- Przenoszenie do Firebase
+
+### 👥 Zarządzanie Użytkownikami
+- Autoryzacja Firebase
+- Role użytkowników (Admin/User)
+- Prywatne dane per użytkownik
 
 ---
 
@@ -317,4 +351,3 @@ Więcej informacji: patrz [SECURITY.md](SECURITY.md)
 - **Projekt**: Linux/Raspberry Pi OS, Node.js 20 LTS
 
 Powodzenia! 🚀
-

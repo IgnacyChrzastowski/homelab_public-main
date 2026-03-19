@@ -1,9 +1,3 @@
 @echo off
-echo Uruchamianie frontendu...
-start cmd /k "npm start"
-
-echo Uruchamianie backendu...
-cd backend
-start cmd /k "node server.js"
-
-echo Obie aplikacje powinny działać.
+REM Wrapper to launch start.ps1
+powershell -ExecutionPolicy RemoteSigned -File "%~dp0start.ps1" %*

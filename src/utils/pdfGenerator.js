@@ -299,3 +299,139 @@ export const generateInvoicePdf = (invoiceData, invoiceForm) => {
     const filename = `Faktura_${invoiceForm.invoiceNumber || 'FV'}_${invoiceForm.issueDate}.pdf`;
     doc.save(filename);
 };
+
+/**
+ * Generates a rental report PDF
+ * @param {Object} rentalData - Rental report data
+ * @param {string} rentalNumber - Auto-generated rental report number
+ */
+export const generateRentalReportPdf = (rentalData, rentalNumber) => {
+    const doc = new jsPDF();
+    let currentY = 20;
+    const lineHeight = 5;
+    const padding = 2;
+    const tableWidth = 182;
+
+    doc.setFont("DejaVuSans", "normal");
+    doc.setLanguage("pl");
+
+    // Title
+    doc.setFontSize(22);
+    doc.text(`RAPORT WYPOŻYCZENIA SPRZĘTU NR: ${rentalNumber}`, 14, currentY);
+    currentY += 12;
+
+    doc.setFontSize(10);
+    const columnX2 = doc.internal.pageSize.width / 2;
+
+    // Owner and Renter
+    doc.text("Właściciel (Pożyczkodawca):", 14, currentY);
+    const ownerLines = doc.splitTextToSize(`${rentalData.ownerName}${rentalData.ownerDetails ? '\n' + rentalData.ownerDetails : ''}`, 80);
+    ownerLines.forEach((line, idx) => {
+        doc.text(line, 14, currentY + lineHeight + (idx * lineHeight));
+    });
+
+    doc.text("Wypożyczający (Pożyczkobiorca):", columnX2, currentY);
+    const renterLines = doc.splitTextToSize(`${rentalData.renterName}${rentalData.renterDetails ? '\n' + rentalData.renterDetails : ''}`, 80);
+    renterLines.forEach((line, idx) => {
+        doc.text(line, columnX2, currentY + lineHeight + (idx * lineHeight));
+    });
+
+    currentY += Math.max(ownerLines.length, renterLines.length) * lineHeight + 10;
+
+    // Dates
+    doc.text(`Data wydania sprzętu: ${rentalData.issueDate}`, 14, currentY);
+    currentY += lineHeight;
+    doc.text(`Przewidywana data zwrotu: ${rentalData.returnDate}`, 14, currentY);
+    currentY += 2 * lineHeight;
+
+    // TABLE
+    doc.setFontSize(8);
+    let rowY = currentY;
+
+    const colWidths = [10, 50, 20, 20, 15, 20, 47];
+    const headers = ['Lp.', 'Nazwa', 'ID', 'Kategoria', 'Ilość', 'Cena Jedn.', 'Razem'];
+    const headerHeight = 7;
+    const rowHeight = 7;
+
+    // Table header
+    doc.setFillColor(210, 105, 30);
+    doc.setTextColor(255, 255, 255);
+    let colX = 14;
+
+    headers.forEach((header, index) => {
+        doc.rect(colX, rowY, colWidths[index], headerHeight, 'F');
+        const headerFontSize = getOptimalFontSize(doc, header, colWidths[index] - padding * 2, 8, 5);
+        doc.setFontSize(headerFontSize);
+        const truncatedHeader = truncateText(doc, header, colWidths[index] - padding * 2);
+        doc.text(truncatedHeader, colX + padding, rowY + headerHeight - padding);
+        colX += colWidths[index];
+    });
+
+    rowY += headerHeight;
+    doc.setTextColor(0, 0, 0);
+
+    // Table rows
+    rentalData.items.forEach((item, index) => {
+        colX = 14;
+
+        if (index % 2 !== 0) {
+            doc.setFillColor(240, 240, 240);
+            doc.rect(14, rowY, tableWidth, rowHeight, 'F');
+        } else {
+            doc.setFillColor(255, 255, 255);
+            doc.rect(14, rowY, tableWidth, rowHeight, 'F');
+        }
+
+        const rowData = [
+            index + 1,
+            item.name,
+            item.internalId || '—',
+            item.categoryName || '—',
+            item.quantity,
+            (item.unitPrice || 0).toFixed(2) + ' PLN',
+            (item.totalValue || 0).toFixed(2) + ' PLN',
+        ];
+
+        rowData.forEach((data, colIndex) => {
+            const align = [0, 1, 2, 3].includes(colIndex) ? 'left' : 'right';
+            const availableWidth = colWidths[colIndex] - padding * 2;
+            doc.rect(colX, rowY, colWidths[colIndex], rowHeight, 'D');
+            const cellFontSize = getOptimalFontSize(doc, data, availableWidth, 8, 4);
+            doc.setFontSize(cellFontSize);
+            const displayText = truncateText(doc, data, availableWidth);
+            if (align === 'right') {
+                doc.text(displayText, colX + colWidths[colIndex] - padding, rowY + rowHeight - padding, { align: 'right' });
+            } else {
+                doc.text(displayText, colX + padding, rowY + rowHeight - padding);
+            }
+            colX += colWidths[colIndex];
+        });
+
+        rowY += rowHeight;
+    });
+
+    currentY = rowY + 10;
+
+    // Summary
+    let totalValue = rentalData.items.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+
+    doc.setFontSize(12);
+    doc.text(`Suma wartości wypożyczanego sprzętu: ${totalValue.toFixed(2)} PLN`, 140, currentY);
+    currentY += 2 * lineHeight;
+
+    // Notes
+    if (rentalData.notes) {
+        doc.setFontSize(10);
+        doc.text("Notatki/Warunki zwrotu:", 14, currentY);
+        currentY += lineHeight;
+        const notesLines = doc.splitTextToSize(rentalData.notes, 180);
+        doc.setFontSize(9);
+        notesLines.forEach((line, idx) => {
+            doc.text(line, 14, currentY + (idx * lineHeight));
+        });
+    }
+
+    // Save
+    const filename = `Raport_Wypozyczenia_${rentalNumber}.pdf`;
+    doc.save(filename);
+};

@@ -16,6 +16,7 @@ import Dashboard from './components/views/Dashboard';
 import ComponentsView from './components/views/ComponentsView';
 import GenericCrudView from './components/views/GenericCrudView';
 import DocumentationView from './components/views/DocumentationView';
+import RentalView from './components/views/RentalView';
 import MigrationTool from './components/views/MigrationTool';
 
 // Styles
@@ -41,6 +42,7 @@ const App = () => {
     const categoriesCrudPath = userId ? `artifacts/default-app-id/users/${userId}/categories` : null;
     const parametersCrudPath = userId ? `artifacts/default-app-id/users/${userId}/parameters` : null;
     const componentsCrudPath = userId ? `artifacts/default-app-id/users/${userId}/components` : null;
+    const rentalReportsCrudPath = userId ? `artifacts/default-app-id/users/${userId}/rentalReports` : null;
 
     // Fetch data using custom hook
     const { items: categories } = useFirestoreCrud(categoriesCrudPath || 'placeholder', userId);
@@ -52,6 +54,11 @@ const App = () => {
         remove: removeDocument,
         update: updateDocument
     } = useFirestoreCrud(DOCUMENTS_COLLECTION_NAME, userId);
+    const {
+        items: rentalReports,
+        add: addRentalReport,
+        remove: removeRentalReport
+    } = useFirestoreCrud(rentalReportsCrudPath || 'placeholder', userId);
 
     // Initialize Firebase and handle authentication
     useEffect(() => {
@@ -156,6 +163,17 @@ const App = () => {
                         removeDocument={removeDocument}
                         updateDocument={updateDocument}
                         userId={userId}
+                    />
+                );
+
+            case 'rental':
+                return (
+                    <RentalView
+                        components={components}
+                        categories={categories}
+                        rentalReports={rentalReports}
+                        addRentalReport={addRentalReport}
+                        removeRentalReport={removeRentalReport}
                     />
                 );
 

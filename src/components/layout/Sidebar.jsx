@@ -16,6 +16,7 @@ const Sidebar = ({ userId, role, currentView, setView, onLogout }) => {
         { id: 'categories', label: 'CRUD: Kategorie', icon: '🏷️', roles: ['Admin'] },
         { id: 'parameters', label: 'CRUD: Parametry', icon: '⚙️', roles: ['Admin'] },
         { id: 'documentation', label: 'Dokumentacja', icon: '📄', roles: ['Admin', 'User'] },
+        { id: 'rental', label: 'Raporty Wypożyczenia', icon: '📋', roles: ['Admin', 'User'] },
         { id: 'migration', label: 'Migracja z LocalStorage', icon: '🔄', roles: ['Admin'] },
     ];
 

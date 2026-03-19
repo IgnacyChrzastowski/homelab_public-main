@@ -1,292 +1,235 @@
-import React, { useState, useEffect } from 'react';
-import { db } from '../../firebase';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import React, { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
+import { generateRentalReportPdf } from '../../utils/pdfGenerator';
+import RentalForm from '../forms/RentalForm';
 
-const RentalView = () => {
-    const [rentals, setRentals] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({
-        ownerName: '',
-        renterName: '',
-        renterDetails: '',
-        issueDate: '',
-        returnDate: '',
-        items: [{ name: '', quantity: 1, category: '', price: 0 }],
-        notes: ''
-    });
+/**
+ * Rental reports view for managing equipment rental tracking
+ * Integrates with Firebase CRUD system and component ewidencja
+ * @param {Array} components - List of components
+ * @param {Array} categories - List of categories
+ * @param {Array} rentalReports - List of rental reports
+ * @param {Function} addRentalReport - Add rental report function
+ * @param {Function} removeRentalReport - Remove rental report function
+ */
+const RentalView = ({
+    components = [],
+    categories = [],
+    rentalReports = [],
+    addRentalReport,
+    removeRentalReport
+}) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [expandedId, setExpandedId] = useState(null);
 
-    useEffect(() => {
-        fetchRentals();
-    }, []);
-
-    const fetchRentals = async () => {
-        const q = query(collection(db, 'rentals'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-        setRentals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const totalValue = form.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-        await addDoc(collection(db, 'rentals'), {
-            ...form,
-            totalValue,
-            createdAt: new Date()
+    const filteredReports = useMemo(() => {
+        return rentalReports.filter(report => {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+                report.internalId?.toLowerCase().includes(searchLower) ||
+                report.ownerName?.toLowerCase().includes(searchLower) ||
+                report.renterName?.toLowerCase().includes(searchLower) ||
+                report.issueDate?.includes(searchLower) ||
+                report.returnDate?.includes(searchLower)
+            );
         });
-        setShowModal(false);
-        setForm({
-            ownerName: '',
-            renterName: '',
-            renterDetails: '',
-            issueDate: '',
-            returnDate: '',
-            items: [{ name: '', quantity: 1, category: '', price: 0 }],
-            notes: ''
-        });
-        fetchRentals();
+    }, [rentalReports, searchTerm]);
+
+    const handleSaveRental = async (rentalData) => {
+        try {
+            await addRentalReport(rentalData, 'RW');
+            toast.success('✅ Raport wypożyczenia zapisany i wygenerowany!');
+        } catch (error) {
+            console.error('Błąd zapisu raportu:', error);
+            toast.error('Nie udało się zapisać raportu.');
+        }
     };
 
-    const addItem = () => {
-        setForm({ ...form, items: [...form.items, { name: '', quantity: 1, category: '', price: 0 }] });
+    const handleGeneratePdf = (report) => {
+        try {
+            generateRentalReportPdf(report, report.internalId);
+            toast.success('✅ PDF został wygenerowany!');
+        } catch (error) {
+            console.error('Błąd generowania PDF:', error);
+            toast.error('Nie udało się wygenerować PDF.');
+        }
     };
 
-    const updateItem = (index, field, value) => {
-        const newItems = [...form.items];
-        newItems[index][field] = value;
-        setForm({ ...form, items: newItems });
-    };
-
-    const removeItem = (index) => {
-        const newItems = form.items.filter((_, i) => i !== index);
-        setForm({ ...form, items: newItems });
-    };
-
-    const generatePDF = (rental) => {
-        const doc = new jsPDF();
-        doc.text(`Raport wypożyczenia sprzętu ${rental.rentalNumber}`, 20, 20);
-        doc.text(`Właściciel: ${rental.ownerName}`, 20, 40);
-        doc.text(`Wypożyczający: ${rental.renterName} - ${rental.renterDetails}`, 20, 50);
-        doc.text(`Data wydania: ${rental.issueDate}`, 20, 60);
-        doc.text(`Przewidywana data zwrotu: ${rental.returnDate}`, 20, 70);
-
-        const tableData = rental.items.map((item, index) => [
-            index + 1,
-            item.name,
-            item.quantity,
-            item.category,
-            item.price.toFixed(2)
-        ]);
-        doc.autoTable({
-            head: [['Lp.', 'Nazwa', 'Ilość', 'Kategoria', 'Cena']],
-            body: tableData,
-            startY: 80
-        });
-
-        doc.text(`Suma wartości: ${rental.totalValue.toFixed(2)}`, 20, doc.lastAutoTable.finalY + 10);
-        if (rental.notes) doc.text(`Notatki: ${rental.notes}`, 20, doc.lastAutoTable.finalY + 20);
-        doc.save(`raport_wypozyczenia_${rental.rentalNumber}.pdf`);
+    const handleDelete = async (reportId) => {
+        if (window.confirm('Czy na pewno chcesz usunąć ten raport wypożyczenia?')) {
+            try {
+                await removeRentalReport(reportId);
+                toast.success('Raport usunięty.');
+            } catch (error) {
+                console.error('Błąd usuwania:', error);
+                toast.error('Nie udało się usunąć raportu.');
+            }
+        }
     };
 
     return (
-        <div>
-            <h1>Raporty wypożyczeń</h1>
-            <button onClick={() => setShowModal(true)}>Dodaj nowy raport</button>
-            <ul>
-                {rentals.map(rental => (
-                    <li key={rental.id}>
-                        {rental.rentalNumber} - {rental.renterName}
-                        <button onClick={() => generatePDF(rental)}>Pobierz PDF</button>
-                    </li>
-                ))}
-            </ul>
-            {showModal && (
-                <div className="modal">
-                    <form onSubmit={handleSubmit}>
-                        <label>Właściciel (imię i nazwisko):</label>
-                        <input type="text" value={form.ownerName} onChange={(e) => setForm({ ...form, ownerName: e.target.value })} required />
+        <div className="p-6">
+            <h1 className="text-3xl font-bold text-gray-800 mb-6">Raporty Wypożyczenia Sprzętu</h1>
 
-                        <label>Wypożyczający (imię i nazwisko):</label>
-                        <input type="text" value={form.renterName} onChange={(e) => setForm({ ...form, renterName: e.target.value })} required />
+            <RentalForm 
+                components={components} 
+                categories={categories}
+                onSave={handleSaveRental}
+            />
 
-                        <label>Dane wypożyczającego:</label>
-                        <textarea value={form.renterDetails} onChange={(e) => setForm({ ...form, renterDetails: e.target.value })} required />
+            <div className="bg-white rounded-xl shadow-lg p-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4 border-b pb-2">
+                    Historia Raportów (RW)
+                </h2>
 
-                        <label>Data wydania:</label>
-                        <input type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} required />
+                <div className="mb-4">
+                    <input
+                        type="text"
+                        placeholder="Szukaj po nazwie właściciela, wypożyczającego, dacie..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">
+                        Znaleziono raportów: {filteredReports.length}
+                    </p>
+                </div>
 
-                        <label>Przewidywana data zwrotu:</label>
-                        <input type="date" value={form.returnDate} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} required />
+                {filteredReports.length > 0 ? (
+                    <div className="space-y-3">
+                        {filteredReports.map(report => (
+                            <div
+                                key={report.id}
+                                className="border border-gray-300 rounded-lg overflow-hidden hover:shadow-md transition"
+                            >
+                                <button
+                                    onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}
+                                    className="w-full bg-gray-50 hover:bg-gray-100 p-4 flex items-center justify-between transition"
+                                >
+                                    <div className="text-left">
+                                        <div className="font-bold text-gray-800">
+                                            {report.internalId} - {report.renterName}
+                                        </div>
+                                        <div className="text-sm text-gray-600">
+                                            Od: {report.issueDate} → Do: {report.returnDate}
+                                        </div>
+                                        <div className="text-sm text-gray-700 font-semibold">
+                                            Właściciel: {report.ownerName} | Wartość: {report.totalValue?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}
+                                        </div>
+                                    </div>
+                                    <span className={`text-xl transform transition ${expandedId === report.id ? 'rotate-180' : ''}`}>
+                                        ⋯
+                                    </span>
+                                </button>
 
-                        <h3>Przedmioty:</h3>
-                        {form.items.map((item, index) => (
-                            <div key={index}>
-                                <input type="text" placeholder="Nazwa" value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)} required />
-                                <input type="number" placeholder="Ilość" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))} min="1" required />
-                                <input type="text" placeholder="Kategoria" value={item.category} onChange={(e) => updateItem(index, 'category', e.target.value)} required />
-                                <input type="number" placeholder="Cena" value={item.price} onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))} step="0.01" required />
-                                <button type="button" onClick={() => removeItem(index)}>Usuń</button>
+                                {expandedId === report.id && (
+                                    <div className="bg-white border-t border-gray-300 p-4 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="bg-blue-50 p-3 rounded">
+                                                <h4 className="font-semibold text-gray-800 mb-2">Właściciel (Pożyczkodawca)</h4>
+                                                <p className="text-sm">{report.ownerName}</p>
+                                                {report.ownerDetails && (
+                                                    <p className="text-xs text-gray-600">{report.ownerDetails}</p>
+                                                )}
+                                            </div>
+                                            <div className="bg-green-50 p-3 rounded">
+                                                <h4 className="font-semibold text-gray-800 mb-2">Wypożyczający (Pożyczkobiorca)</h4>
+                                                <p className="text-sm">{report.renterName}</p>
+                                                {report.renterDetails && (
+                                                    <p className="text-xs text-gray-600">{report.renterDetails}</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-3 rounded">
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">Data wydania:</span>
+                                                <p className="text-sm font-semibold">{report.issueDate}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">Data zwrotu (przewidywana):</span>
+                                                <p className="text-sm font-semibold">{report.returnDate}</p>
+                                            </div>
+                                        </div>
+
+                                        {report.items && report.items.length > 0 && (
+                                            <div>
+                                                <h4 className="font-semibold text-gray-800 mb-2">Elementy wypożyczone</h4>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm border border-gray-300">
+                                                        <thead className="bg-orange-200">
+                                                            <tr>
+                                                                <th className="px-3 py-2 text-left">Lp.</th>
+                                                                <th className="px-3 py-2 text-left">Nazwa</th>
+                                                                <th className="px-3 py-2 text-left">Kategoria</th>
+                                                                <th className="px-3 py-2 text-right">Ilość</th>
+                                                                <th className="px-3 py-2 text-right">Cena Jedn.</th>
+                                                                <th className="px-3 py-2 text-right">Razem</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {report.items.map((item, idx) => (
+                                                                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                                                    <td className="px-3 py-2">{idx + 1}</td>
+                                                                    <td className="px-3 py-2 font-semibold">{item.name}</td>
+                                                                    <td className="px-3 py-2">{item.categoryName || '—'}</td>
+                                                                    <td className="px-3 py-2 text-right">{item.quantity}</td>
+                                                                    <td className="px-3 py-2 text-right">
+                                                                        {item.unitPrice?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-right font-semibold">
+                                                                        {item.totalValue?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="bg-orange-100 p-3 rounded text-right">
+                                            <span className="text-lg font-bold text-gray-800">
+                                                Suma wartości: {report.totalValue?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}
+                                            </span>
+                                        </div>
+
+                                        {report.notes && (
+                                            <div className="bg-yellow-50 p-3 rounded">
+                                                <h4 className="font-semibold text-gray-800 mb-2">Notatki:</h4>
+                                                <p className="text-sm whitespace-pre-wrap">{report.notes}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-2 justify-end border-t pt-4">
+                                            <button
+                                                onClick={() => handleGeneratePdf(report)}
+                                                className="bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg transition-colors"
+                                            >
+                                                📥 Pobierz PDF
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(report.id)}
+                                                className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg transition-colors"
+                                            >
+                                                🗑️ Usuń
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
-                        <button type="button" onClick={addItem}>Dodaj przedmiot</button>
-
-                        <label>Notatki (opcjonalne):</label>
-                        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-
-                        <button type="submit">Zapisz raport</button>
-                        <button type="button" onClick={() => setShowModal(false)}>Anuluj</button>
-                    </form>
-                </div>
-            )}
+                    </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <p className="text-gray-600 text-lg">Brak raportów wypożyczenia</p>
+                        <p className="text-gray-500">Utwórz nowy raport, klikając przycisk powyżej</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
 
 export default RentalView;
-import React, { useState, useEffect } from 'react';
-import { db } from '../../firebase';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
-const RentalView = () => {
-    const [rentals, setRentals] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({
-        ownerName: '',
-        renterName: '',
-        renterDetails: '',
-        issueDate: '',
-        returnDate: '',
-        items: [{ name: '', quantity: 1, category: '', price: 0 }],
-        notes: ''
-    });
-
-    useEffect(() => {
-        fetchRentals();
-    }, []);
-
-    const fetchRentals = async () => {
-        const q = query(collection(db, 'rentals'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-        setRentals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const totalValue = form.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-        await addDoc(collection(db, 'rentals'), {
-            ...form,
-            totalValue,
-            createdAt: new Date()
-        });
-        setShowModal(false);
-        setForm({
-            ownerName: '',
-            renterName: '',
-            renterDetails: '',
-            issueDate: '',
-            returnDate: '',
-            items: [{ name: '', quantity: 1, category: '', price: 0 }],
-            notes: ''
-        });
-        fetchRentals();
-    };
-
-    const addItem = () => {
-        setForm({ ...form, items: [...form.items, { name: '', quantity: 1, category: '', price: 0 }] });
-    };
-
-    const updateItem = (index, field, value) => {
-        const newItems = [...form.items];
-        newItems[index][field] = value;
-        setForm({ ...form, items: newItems });
-    };
-
-    const removeItem = (index) => {
-        const newItems = form.items.filter((_, i) => i !== index);
-        setForm({ ...form, items: newItems });
-    };
-
-    const generatePDF = (rental) => {
-        const doc = new jsPDF();
-        doc.text(`Raport wypożyczenia sprzętu ${rental.rentalNumber}`, 20, 20);
-        doc.text(`Właściciel: ${rental.ownerName}`, 20, 40);
-        doc.text(`Wypożyczający: ${rental.renterName} - ${rental.renterDetails}`, 20, 50);
-        doc.text(`Data wydania: ${rental.issueDate}`, 20, 60);
-        doc.text(`Przewidywana data zwrotu: ${rental.returnDate}`, 20, 70);
-
-        const tableData = rental.items.map((item, index) => [
-            index + 1,
-            item.name,
-            item.quantity,
-            item.category,
-            item.price.toFixed(2)
-        ]);
-        doc.autoTable({
-            head: [['Lp.', 'Nazwa', 'Ilość', 'Kategoria', 'Cena']],
-            body: tableData,
-            startY: 80
-        });
-
-        doc.text(`Suma wartości: ${rental.totalValue.toFixed(2)}`, 20, doc.lastAutoTable.finalY + 10);
-        if (rental.notes) doc.text(`Notatki: ${rental.notes}`, 20, doc.lastAutoTable.finalY + 20);
-        doc.save(`raport_wypozyczenia_${rental.rentalNumber}.pdf`);
-    };
-
-    return (
-        <div>
-            <h1>Raporty wypożyczeń</h1>
-            <button onClick={() => setShowModal(true)}>Dodaj nowy raport</button>
-            <ul>
-                {rentals.map(rental => (
-                    <li key={rental.id}>
-                        {rental.rentalNumber} - {rental.renterName}
-                        <button onClick={() => generatePDF(rental)}>Pobierz PDF</button>
-                    </li>
-                ))}
-            </ul>
-            {showModal && (
-                <div className="modal">
-                    <form onSubmit={handleSubmit}>
-                        <label>Właściciel (imię i nazwisko):</label>
-                        <input type="text" value={form.ownerName} onChange={(e) => setForm({ ...form, ownerName: e.target.value })} required />
-
-                        <label>Wypożyczający (imię i nazwisko):</label>
-                        <input type="text" value={form.renterName} onChange={(e) => setForm({ ...form, renterName: e.target.value })} required />
-
-                        <label>Dane wypożyczającego:</label>
-                        <textarea value={form.renterDetails} onChange={(e) => setForm({ ...form, renterDetails: e.target.value })} required />
-
-                        <label>Data wydania:</label>
-                        <input type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} required />
-
-                        <label>Przewidywana data zwrotu:</label>
-                        <input type="date" value={form.returnDate} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} required />
-
-                        <h3>Przedmioty:</h3>
-                        {form.items.map((item, index) => (
-                            <div key={index}>
-                                <input type="text" placeholder="Nazwa" value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)} required />
-                                <input type="number" placeholder="Ilość" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))} min="1" required />
-                                <input type="text" placeholder="Kategoria" value={item.category} onChange={(e) => updateItem(index, 'category', e.target.value)} required />
-                                <input type="number" placeholder="Cena" value={item.price} onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))} step="0.01" required />
-                                <button type="button" onClick={() => removeItem(index)}>Usuń</button>
-                            </div>
-                        ))}
-                        <button type="button" onClick={addItem}>Dodaj przedmiot</button>
-
-                        <label>Notatki (opcjonalne):</label>
-                        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-
-                        <button type="submit">Zapisz raport</button>
-                        <button type="button" onClick={() => setShowModal(false)}>Anuluj</button>
-                    </form>
-                </div>
-            )}
-        </div>
-    );
-};
-
-export default RentalView;
