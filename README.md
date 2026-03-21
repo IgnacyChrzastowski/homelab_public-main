@@ -92,6 +92,25 @@ Po instalacji aplikacja będzie:
 
 ## Instalacja
 
+### Windows - Rozwiązywanie problemów z Node.js
+
+Jeśli podczas uruchamiania `.\install.ps1` widzisz błąd:
+```
+npm : The term 'npm' is not recognized as the name of a cmdlet...
+```
+
+**Rozwiązanie:**
+1. Pobierz i zainstaluj Node.js z: https://nodejs.org/
+2. Wybierz wersję **Node.js 20.x LTS**
+3. Uruchom ponownie PowerShell
+4. Uruchom ponownie: `.\install.ps1`
+
+**Alternatywa:** Jeśli nie chcesz instalować Node.js, użyj parametru:
+```powershell
+.\install.ps1 -SkipNpmInstall
+```
+To pominie instalację zależności i tylko wygeneruje pliki `start.ps1` i `start.bat`.
+
 ### Raspberry Pi / Linux (z systemd - rekomendowany) ⭐
 
 **WAŻNE: Nie uruchamiaj z sudo!**
@@ -339,8 +358,6 @@ Instalator automatycznie naprawia podatności przy pomocy `npm audit fix --force
 
 - **Frontend (React)**: Warningi o deprecated pakietach to normalne - nie wpływają na bezpieczeństwo aplikacji
 - **Backend (Express)**: Podatności są naprawianie automatycznie
-
-Więcej informacji: patrz [SECURITY.md](SECURITY.md)
 
 ---
 

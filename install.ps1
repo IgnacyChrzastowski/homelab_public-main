@@ -16,6 +16,35 @@ Write-Host "Homelab Public - Installer"
 Write-Host "======================================"
 Write-Host "Project directory: $ProjectDir"
 
+# Check if Node.js and npm are available
+function Test-NodeJsAvailable {
+    try {
+        $null = Get-Command npm -ErrorAction Stop
+        $null = Get-Command node -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+# Check if Node.js and npm are available (only if not skipping npm install)
+if (-not $SkipNpmInstall) {
+    if (-not (Test-NodeJsAvailable)) {
+        Write-Warning "Node.js and npm are not installed or not in PATH."
+        Write-Host ""
+        Write-Host "Please install Node.js from: https://nodejs.org/"
+        Write-Host "Recommended version: Node.js 20.x LTS"
+        Write-Host ""
+        Write-Host "After installation, restart PowerShell and run this script again."
+        Write-Host "Or use the -SkipNpmInstall parameter to skip npm installation."
+        Write-Host ""
+        Write-Host "Example: .\install.ps1 -SkipNpmInstall"
+        exit 1
+    }
+} else {
+    Write-Host "Skipping npm install and Node.js availability check (--SkipNpmInstall)"
+}
+
 # Check if project directory exists
 if (-not (Test-Path $ProjectDir -PathType Container)) {
     Write-Error "Project directory does not exist: $ProjectDir"
@@ -65,6 +94,23 @@ if ((Test-Path $backendDir -PathType Container) -and -not $SkipNpmInstall) {
 
 # Generate start.ps1
 $startPs1Template = @'
+# Check if Node.js and npm are available
+function Test-NodeJsAvailable {
+    try {
+        $null = Get-Command npm -ErrorAction Stop
+        $null = Get-Command node -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+if (-not (Test-NodeJsAvailable)) {
+    Write-Error "Node.js and npm are not available. Please install Node.js from https://nodejs.org/"
+    Write-Host "Recommended version: Node.js 20.x LTS"
+    exit 1
+}
+
 Write-Host "Starting frontend..."
 $start = Start-Process -FilePath "npm" -ArgumentList "start" -WorkingDirectory "___PROJECTDIR___" -PassThru
 
